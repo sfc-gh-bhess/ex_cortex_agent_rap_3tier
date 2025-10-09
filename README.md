@@ -1,4 +1,4 @@
-# Cortex Agents with Row Access Policies and React
+# Cortex Agents for Multiple Tenants/Users
 
 This example demonstrates a **3-tier architecture** for using Snowflake Cortex Agents with multi-tenant data:
 - **Frontend**: Next.js React application
@@ -21,13 +21,12 @@ User → Frontend (Next.js) → Backend (Express) → Snowflake (Cortex Agent + 
 
 - Node.js 20+
 - Snowflake account with Cortex Agent enabled
-- Completed steps 1-2 from the [Getting Started with Cortex Agents Quickstart](https://quickstarts.snowflake.com/guide/getting_started_with_cortex_agents/index.html)
 
 ## Setup Instructions
 
 ### 1. Run the Snowflake Notebook
 
-Import and run `CORTEXAGENT_RAP.ipynb` in Snowflake to:
+Import and run `MULTISALES.ipynb` in Snowflake to:
 - Create tables with Row Access Policies
 - Set up semantic model and search service
 - Generate environment variables
@@ -58,24 +57,19 @@ Create a `.env` file in the **backend** directory with values from the notebook:
 BACKEND_PORT=4000
 
 # Snowflake connection
-SNOWFLAKE_URL=https://<ACCOUNT_LOCATOR>.snowflakecomputing.com
-SNOWFLAKE_PAT=<YOUR_PERSONAL_ACCESS_TOKEN>
-SNOWFLAKE_WAREHOUSE=<WAREHOUSE_NAME>
+SNOWFLAKE_URL="https://<ACCOUNT_LOCATOR>.snowflakecomputing.com"
+SNOWFLAKE_PAT="<YOUR_PERSONAL_ACCESS_TOKEN>"
+SNOWFLAKE_WAREHOUSE="<WAREHOUSE_NAME>"
 
 # Cortex Agent resources
-SEMANTIC_MODEL_PATH=@SALES_INTELLIGENCE.DATA.MODELS/sales_metrics_model.yaml
-SEARCH_SERVICE_PATH=SALES_INTELLIGENCE.DATA.SALES_CONVERSATION_SEARCH
-
-# Optional: For JWT key-pair auth (instead of PAT)
-# SNOWFLAKE_ACCOUNT=<ACCOUNT>
-# SNOWFLAKE_USER=<USER>
-# Place rsa_key.p8 file in backend directory
+SEMANTIC_MODEL_PATH="<PATH_TO_SEMANTIC_MODEL_FILE>"
+SEARCH_SERVICE_PATH="<PATH_TO_CORTEX_SEARCH_SERVICE>"
 ```
 
-Create a `.env.local` file in the **frontend** directory:
+In the **frontend** directory, copy the `env.local.example` file to `.env.local`
 
 ```bash
-NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+cp frontend/env.local.example frontend/.env.local
 ```
 
 ### 4. Run the Application
@@ -96,19 +90,15 @@ The frontend will be available at `http://localhost:3000`.
 
 ## Demo Users
 
-The application includes 6 demo users (password is the same as username):
+The application includes 3 demo users (password is the same as username):
 
 | User | Access To |
 |------|-----------|
-| Alice | Rachel, Sarah |
-| Bob | James, Mike |
-| Charlie | All users |
-| James | James only |
-| Mike | Mike only |
-| Rachel | Rachel only |
-| Sarah | Sarah only |
+| Alice | Alices Restaurant |
+| Bob | Bobs Place |
+| Charlie | Charlies Diner |
 
-Try logging in as different users and asking: **"What are the biggest deals won and lost?"**
+Try logging in as different users and asking: **"What were the best selling chicken sandwiches?"**
 
 Each user will see different results based on their row-level access.
 
@@ -147,7 +137,8 @@ Each user will see different results based on their row-level access.
 ├── data/
 │   ├── setup.sql          # Database setup script
 │   └── customer_semantic_model.yaml
-└── CORTEXAGENTS_RAP.ipynb # Setup notebook
+└── MULTISALES.yaml        # Cortex Analyst semantic model file
+└── MULTISALES.ipynb       # Setup notebook
 ```
 
 ## Development

@@ -1,0 +1,117 @@
+name: MULTISALES
+description: This semantic model contains menu items and daily sales for multiple restaurant chains and stores for business analysis.
+tables:
+  - name: ITEMS
+    synonyms: []
+    description: This table stores information about items across multiple tenants, with each item having a unique identifier, a descriptive name, and a detailed description.
+    base_table:
+      database: MULTISALES
+      schema: DATA
+      table: ITEMS
+    dimensions:
+      - name: ITEM
+        description: This column represents the name of the menu item, which is a dimension used to categorize and analyze sales data.
+        expr: ITEM
+        data_type: VARCHAR(29)
+        sample_values:
+          - Chicken Salad Sandwich
+          - Chicken Caesar Wrap
+          - Veggie Tacos
+        cortex_search_service:
+          database: MULTISALES
+          schema: DATA
+          service: ITEMS_SEARCH
+      - name: ITEM_DESCRIPTION
+        description: A detailed description of each menu item, including ingredients, preparation methods, and flavor profiles, designed to entice customers and provide a clear understanding of the dish.
+        expr: ITEM_DESCRIPTION
+        data_type: VARCHAR(16777216)
+        sample_values:
+          - Tender, hand-pulled chicken mixed with crisp celery, fresh herbs, and creamy mayo, nestled between slices of artisan bread. This classic comfort sandwich delivers the perfect balance of flavors and textures, making it an irresistible choice for lunch that will leave you completely satisfied.
+          - Juicy, perfectly seasoned chicken breast grilled to golden perfection and nestled on a toasted brioche bun with crisp lettuce, ripe tomato, and creamy mayo. Each bite delivers tender, smoky flavors that will satisfy your cravings. A classic done right – simple, fresh, and absolutely delicious.
+          - |-
+            **Cheddar Burger**
+
+            Juicy, flame-grilled beef patty topped with rich, melted aged cheddar cheese on a toasted brioche bun. Served with crisp lettuce, ripe tomato, and red onion. This classic comfort food delivers bold, satisfying flavors in every bite. Pure indulgence for cheese lovers craving the perfect burger experience.
+      - name: ITEM_ID
+        description: Unique identifier for each item in the inventory.
+        expr: ITEM_ID
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '101'
+          - '102'
+          - '103'
+      - name: TENANT
+        description: The name of the tenant or business that occupies a specific location or space.
+        expr: TENANT
+        data_type: VARCHAR(17)
+        sample_values:
+          - Bobs Place
+          - Charlies Diner
+          - Alices Restaurant
+    facts: []
+    primary_key:
+      columns:
+        - ITEM_ID
+  - name: ORDERS
+    description: This table stores information about orders placed across different stores and tenants, including the date of the order, the store ID, the tenant name, the item ID and name, and the quantity of the item ordered.
+    base_table:
+      database: MULTISALES
+      schema: DATA
+      table: ORDERS
+    dimensions:
+      - name: ITEM
+        description: The type of menu item ordered by the customer.
+        expr: ITEM
+        data_type: VARCHAR(29)
+        sample_values:
+          - Chicken Salad Sandwich
+          - Chicken Caesar Wrap
+          - Grilled Chicken Sandwich
+      - name: ITEM_ID
+        description: Unique identifier for the item being ordered.
+        expr: ITEM_ID
+        data_type: NUMBER(38,0)
+        sample_values:
+          - '101'
+          - '102'
+          - '103'
+      - name: STORE_ID
+        description: Unique identifier for the store where the order was placed.
+        expr: STORE_ID
+        data_type: NUMBER(11,0)
+        sample_values:
+          - '1003'
+          - '1001'
+          - '3001'
+      - name: TENANT
+        description: The name of the tenant or customer who placed the order.
+        expr: TENANT
+        data_type: VARCHAR(17)
+        sample_values:
+          - Alices Restaurant
+    time_dimensions:
+      - name: DATE
+        description: Date the order was placed.
+        expr: DATE
+        data_type: DATE
+        sample_values:
+          - '2024-01-01'
+          - '2024-01-03'
+          - '2024-01-02'
+    facts:
+      - name: QUANTITY
+        description: The quantity of items ordered.
+        expr: QUANTITY
+        data_type: FLOAT
+        sample_values:
+          - '449'
+          - '317'
+          - '588'
+relationships:
+  - name: orders_to_items
+    left_table: ORDERS
+    relationship_columns:
+      - left_column: ITEM_ID
+        right_column: ITEM_ID
+    right_table: ITEMS
+module_custom_instructions: {}
