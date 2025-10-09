@@ -1,0 +1,8 @@
+{
+  "name": "root-workspace",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ]
+}
