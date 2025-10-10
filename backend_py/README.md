@@ -36,7 +36,9 @@ pip install -r requirements.txt
 
 ## Configuration
 
-Create a `.env` file in the `backend_py` directory with your Snowflake credentials:
+### 1. Environment Variables
+
+Create a `.env` file in the `backend_py` directory:
 
 ```bash
 # Backend server
@@ -49,20 +51,50 @@ BACKEND_PORT=4000
 SNOWFLAKE_URL=https://<ACCOUNT_LOCATOR>.snowflakecomputing.com
 SNOWFLAKE_PAT=<YOUR_PERSONAL_ACCESS_TOKEN>
 SNOWFLAKE_WAREHOUSE=<WAREHOUSE_NAME>
-
-# Cortex Agent resources
-SEMANTIC_MODEL_PATH=@SALES_INTELLIGENCE.DATA.MODELS/sales_metrics_model.yaml
-SEARCH_SERVICE_PATH=SALES_INTELLIGENCE.DATA.SALES_CONVERSATION_SEARCH
 ```
 
-Copy the example file to get started:
-
+Copy the example file:
 ```bash
 cp env.example .env
 # Then edit .env with your actual values
 ```
 
-**Getting Configuration Values**: Run the `CORTEXAGENTS_RAP.ipynb` notebook in Snowflake to set up the required resources and generate these values.
+### 2. Agent Model Configuration
+
+Create an `agent_model.yaml` file in the `backend_py` directory with your Cortex Agent configuration:
+
+```yaml
+model: claude-4-sonnet
+experimental:
+  EnableRelatedQueries: true
+tools:
+  - tool_spec:
+      type: cortex_search
+      name: search1
+  - tool_spec:
+      type: cortex_analyst_text_to_sql
+      name: analyst1
+  - tool_spec:
+      type: data_to_chart
+      name: data_to_chart
+  - tool_spec:
+      type: sql_exec
+      name: sql_exec
+tool_resources:
+  analyst1:
+    semantic_model_file: "@MULTISALES.DATA.MODELS/MULTISALES.yaml"
+  search1:
+    name: "MULTISALES.DATA.ITEMS_SEARCH"
+    max_results: 10
+```
+
+Copy the example file:
+```bash
+cp agent_model.yaml.example agent_model.yaml
+# Then edit agent_model.yaml with your actual values
+```
+
+**Getting Configuration Values**: Run the `MULTISALES.ipynb` notebook in Snowflake to set up the required resources. The notebook will provide the configuration to copy into `agent_model.yaml`.
 
 ## Running the Backend
 

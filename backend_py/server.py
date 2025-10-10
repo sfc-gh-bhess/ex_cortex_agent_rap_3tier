@@ -9,10 +9,12 @@ import time
 import base64
 import hashlib
 import logging
+import copy
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 
 import jwt
+import yaml
 from fastapi import FastAPI, Request, Response, HTTPException, Cookie
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,12 +80,9 @@ SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER", "")
 with open(os.path.join(os.path.dirname(__file__), "users.json"), "r") as f:
     DEMO_USERS = json.load(f)
 
-AGENT_TOOLS = [
-    {"tool_spec": {"type": "cortex_search", "name": "search1"}},
-    {"tool_spec": {"type": "cortex_analyst_text_to_sql", "name": "analyst1"}},
-    {"tool_spec": {"type": "data_to_chart", "name": "data_to_chart"}},
-    {"tool_spec": {"type": "sql_exec", "name": "sql_exec"}},
-]
+# Load agent model configuration from YAML file
+with open(os.path.join(os.path.dirname(__file__), "agent_model.yaml"), "r") as f:
+    AGENT_MODEL_CONFIG = yaml.safe_load(f)
 
 def get_statement_parameters(statement_count: int = 1) -> Dict:
     return {
@@ -124,21 +123,12 @@ def get_snowflake_auth_headers(auth_token: str) -> Dict[str, str]:
         "Authorization": f"Bearer {auth_token}"
     }
 
-def create_agent_request_body(messages: List[Dict], tool_resources: Optional[Dict] = None) -> Dict:
-    """Build agent API request body."""
-    if tool_resources is None:
-        tool_resources = {
-            "analyst1": {"semantic_model_file": SEMANTIC_MODEL_PATH},
-            "search1": {"name": SEARCH_SERVICE_PATH, "max_results": 10},
-        }
-    
-    return {
-        "model": "claude-4-sonnet",
-        "experimental": {"EnableRelatedQueries": True},
-        "messages": messages,
-        "tools": AGENT_TOOLS,
-        "tool_resources": tool_resources,
-    }
+def create_agent_request_body(messages: List[Dict]) -> Dict:
+    """Build agent API request body by cloning config and adding messages."""
+    # Clone the agent model config and add messages
+    body = copy.deepcopy(AGENT_MODEL_CONFIG)
+    body["messages"] = messages
+    return body
 
 def write_sse(event_name: Optional[str], data_obj: Any) -> str:
     """Format data as Server-Sent Event."""

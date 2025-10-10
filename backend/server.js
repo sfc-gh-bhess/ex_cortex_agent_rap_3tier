@@ -7,6 +7,7 @@ import { createHash, createPrivateKey, createPublicKey } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { events } from 'fetch-event-stream';
+import yaml from 'js-yaml';
 
 dotenv.config();
 
@@ -24,12 +25,8 @@ app.use(cookieParser());
 // Load demo users from JSON file
 const DEMO_USERS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'users.json'), 'utf-8'));
 
-const AGENT_TOOLS = [
-  { tool_spec: { type: 'cortex_search', name: 'search1' } },
-  { tool_spec: { type: 'cortex_analyst_text_to_sql', name: 'analyst1' } },
-  { tool_spec: { type: 'data_to_chart', name: 'data_to_chart' } },
-  { tool_spec: { type: 'sql_exec', name: 'sql_exec' } },
-];
+// Load agent model configuration from YAML file
+const AGENT_MODEL_CONFIG = yaml.load(fs.readFileSync(path.join(process.cwd(), 'agent_model.yaml'), 'utf-8'));
 
 const STATEMENT_PARAMETERS = {
   MULTI_STATEMENT_COUNT: '2',
@@ -101,16 +98,11 @@ async function getSQLResults(snowflakeUrl, authToken, statementHandle) {
   return await sqlResultsResp.json();
 }
 
-function createAgentRequestBody(messages, toolResources) {
+function createAgentRequestBody(messages) {
+  // Clone the agent model config and add messages
   return {
-    model: 'claude-4-sonnet',
-    experimental: { EnableRelatedQueries: true },
-    messages,
-    tools: AGENT_TOOLS,
-    tool_resources: toolResources || {
-      analyst1: { semantic_model_file: process.env.SEMANTIC_MODEL_PATH },
-      search1: { name: process.env.SEARCH_SERVICE_PATH, max_results: 10 },
-    },
+    ...structuredClone(AGENT_MODEL_CONFIG),
+    messages
   };
 }
 

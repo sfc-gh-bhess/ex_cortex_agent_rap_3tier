@@ -47,7 +47,9 @@ The architecture separates concerns cleanly: the frontend handles UI/UX, the bac
 Import and run `CORTEXAGENTS_RAP.ipynb` in Snowflake to:
 - Create tables with Row Access Policies
 - Set up semantic model and search service
-- Generate environment variable values
+- Generate the `agent_model.yaml` configuration
+
+The notebook will output the configuration you need to copy into your backend's `agent_model.yaml` file.
 
 ### 2. Choose Your Backend
 
