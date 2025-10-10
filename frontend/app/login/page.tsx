@@ -2,7 +2,6 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { demoUsers } from "@/lib/auth/demoUsers";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -47,15 +46,9 @@ export default function LoginPage() {
 					className="w-full border rounded px-2 py-1"
 					value={username}
 					onChange={(e) => setUsername(e.target.value)}
-					list="demo-users"
-					placeholder="e.g. Alice"
+					placeholder="Enter username"
 					required
 				/>
-				<datalist id="demo-users">
-					{demoUsers.map((u) => (
-						<option key={u} value={u} />
-					))}
-				</datalist>
 
 				<label className="block text-sm">Password</label>
 				<input
@@ -63,7 +56,7 @@ export default function LoginPage() {
 					className="w-full border rounded px-2 py-1"
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
-					placeholder="Same as username"
+					placeholder="Enter password"
 					required
 				/>
 				{error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -74,7 +67,6 @@ export default function LoginPage() {
 				>
 					{isLoading ? "Logging in..." : "Log in"}
 				</button>
-				<p className="text-xs text-muted-foreground">Allowed users: {demoUsers.join(", ")}</p>
 			</form>
 		</div>
 	);

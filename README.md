@@ -1,172 +1,296 @@
-# Cortex Agents for Multiple Tenants/Users
+# Cortex Agents with Row Access Policies - 3-Tier Architecture
 
-This example demonstrates a **3-tier architecture** for using Snowflake Cortex Agents with multi-tenant data:
-- **Frontend**: Next.js React application
-- **Backend**: Express.js proxy server
+## Overview
+
+This example demonstrates a **production-ready 3-tier architecture** for building multi-tenant applications with Snowflake Cortex Agents:
+
+- **Frontend**: Next.js React application for the chat UI
+- **Backend**: Node.js (Express) or Python (FastAPI) proxy server
 - **Snowflake**: Cortex Agent API with Row Access Policies (RAP)
 
-The backend acts as a secure proxy that:
-- Handles all Snowflake API calls (agent and statements)
-- Manages authentication tokens
-- Automatically executes SQL and redacts it before sending to frontend
-- Implements row-level security via `SET TENANT` session variable
+The architecture separates concerns cleanly: the frontend handles UI/UX, the backend manages Snowflake communication and security, and Snowflake provides the AI agent capabilities with built-in row-level security.
 
-## Architecture Overview
+## Architecture
 
 ```
-User → Frontend (Next.js) → Backend (Express) → Snowflake (Cortex Agent + RAP)
+┌──────────┐      ┌──────────────────┐      ┌──────────────┐
+│ Frontend │ ───▶ │  Backend Proxy   │ ───▶ │  Snowflake   │
+│ Next.js  │ ◀─── │ Node.js or Python│ ◀─── │ Cortex Agent │
+└──────────┘      └──────────────────┘      │     +RAP     │
+                                             └──────────────┘
 ```
+
+### How It Works
+
+1. User sends a natural language query through the chat interface
+2. Backend receives the query and calls Snowflake Cortex Agent API
+3. Agent analyzes the query and generates SQL based on the semantic model
+4. Backend detects the SQL, prepends `SET TENANT = '<username>'` for row-level security
+5. Backend executes the SQL via Snowflake Statements API
+6. Backend redacts the SQL statement and sends table results to frontend
+7. Backend calls Agent API again with query results for data-to-analytics
+8. Agent generates charts and insights, streamed back to frontend in real-time
+
+**Key Security Feature**: The SQL statement is **never exposed to the frontend** - it's executed by the backend and only results are returned. Each user sees only their authorized data thanks to Row Access Policies.
 
 ## Prerequisites
 
-- Node.js 20+
-- Snowflake account with Cortex Agent enabled
+- **Snowflake Account** with Cortex Agent enabled
+- **Node.js 20+** for frontend and Node.js backend
+- **Python 3.9+** for Python backend (if using that option)
+- Completed **Snowflake setup** (run the `CORTEXAGENTS_RAP.ipynb` notebook)
 
-## Setup Instructions
+## Quick Start
 
-### 1. Run the Snowflake Notebook
+### 1. Set Up Snowflake
 
-Import and run `MULTISALES.ipynb` in Snowflake to:
+Import and run `CORTEXAGENTS_RAP.ipynb` in Snowflake to:
 - Create tables with Row Access Policies
 - Set up semantic model and search service
-- Generate environment variables
+- Generate environment variable values
 
-### 2. Install Dependencies
+### 2. Choose Your Backend
 
+This project provides **two backend implementations** with identical functionality:
+
+#### Option A: Node.js Backend (Express)
+- **Best for**: JavaScript/TypeScript teams, minimal dependencies, fastest startup
+- **See**: [`backend/README.md`](backend/README.md) for setup instructions
+
+#### Option B: Python Backend (FastAPI)
+- **Best for**: Python teams, type safety, auto-generated API docs
+- **See**: [`backend_py/README.md`](backend_py/README.md) for setup instructions
+
+**Important**: Choose one backend - they provide the same API and cannot run simultaneously on the same port.
+
+### 3. Set Up Frontend
+
+The same frontend works with either backend choice.
+
+**See**: [`frontend/README.md`](frontend/README.md) for setup instructions
+
+### 4. Start the Application
+
+**Terminal 1** - Start your chosen backend:
 ```bash
-# Install pnpm (if not already installed)
-npm install -g pnpm
-
-# Install backend dependencies
+# Node.js backend
 cd backend
-pnpm install
+node server.js
 
-# Install frontend dependencies
-cd ../frontend
-pnpm install
-
-cd ..
+# OR Python backend
+cd backend_py
+python server.py
 ```
 
-### 3. Configure Environment Variables
-
-Create a `.env` file in the **backend** directory with values from the notebook:
-
+**Terminal 2** - Start the frontend:
 ```bash
-# Backend server
-BACKEND_PORT=4000
-
-# Snowflake connection
-SNOWFLAKE_URL="https://<ACCOUNT_LOCATOR>.snowflakecomputing.com"
-SNOWFLAKE_PAT="<YOUR_PERSONAL_ACCESS_TOKEN>"
-SNOWFLAKE_WAREHOUSE="<WAREHOUSE_NAME>"
-
-# Cortex Agent resources
-SEMANTIC_MODEL_PATH="<PATH_TO_SEMANTIC_MODEL_FILE>"
-SEARCH_SERVICE_PATH="<PATH_TO_CORTEX_SEARCH_SERVICE>"
-```
-
-In the **frontend** directory, copy the `env.local.example` file to `.env.local`
-
-```bash
-cp frontend/env.local.example frontend/.env.local
-```
-
-### 4. Run the Application
-
-In **separate terminals**:
-
-```bash
-# Terminal 1: Start backend
-cd backend
-pnpm dev
-
-# Terminal 2: Start frontend
 cd frontend
 pnpm dev
 ```
 
-The frontend will be available at `http://localhost:3000`.
+Open `http://localhost:3000` in your browser.
 
 ## Demo Users
 
-The application includes 3 demo users (password is the same as username):
+The application includes three default demo users:
 
-| User | Access To |
-|------|-----------|
-| Alice | Alices Restaurant |
-| Bob | Bobs Place |
-| Charlie | Charlies Diner |
+- **Alice**
+- **Bob**
+- **Charlie**
 
-Try logging in as different users and asking: **"What were the best selling chicken sandwiches?"**
+**Login**: The password for each user is the same as their username (e.g., username: `Alice`, password: `Alice`).
 
-Each user will see different results based on their row-level access.
+**Try asking**: "What are the biggest deals won and lost?"
 
-## How It Works
+Each user will see different results based on their row-level access permissions configured in Snowflake's Row Access Policies.
 
-1. **User sends a query** from the frontend
-2. **Backend receives messages** and calls Snowflake Agent API
-3. **Agent generates SQL** based on the semantic model
-4. **Backend intercepts SQL**, redacts it, and:
-   - Prepends `SET TENANT = '<username>'` to enforce row-level security
-   - Executes SQL via Snowflake Statements API
-   - Calls Agent API again for data-to-analytics (charts/tables)
-5. **Frontend receives**:
-   - Analyst text explanation
-   - Table results (SQL hidden)
-   - Charts and insights
+### Managing Users
 
-## Key Features
+Users are defined in the `users.json` file in your chosen backend directory:
+- Node.js backend: `backend/users.json`
+- Python backend: `backend_py/users.json`
 
-- ✅ **Row-Level Security**: Users only see their authorized data
-- ✅ **SQL Redaction**: SQL statements never reach the frontend
-- ✅ **Automatic SQL Execution**: Backend handles SQL transparently
-- ✅ **Streaming Responses**: Real-time SSE from Snowflake to frontend
-- ✅ **Session Management**: Cookie-based demo authentication
+**To add or remove users**:
+1. Edit the `users.json` file in your backend directory
+2. Add or remove user entries with `username` and `password` fields
+3. Restart the backend server
+
+Example `users.json`:
+```json
+[
+  {"username": "Alice", "password": "Alice"},
+  {"username": "Bob", "password": "Bob"},
+  {"username": "Charlie", "password": "Charlie"},
+  {"username": "Diana", "password": "SecurePass123"}
+]
+```
+
+**Note**: You'll also need to configure corresponding Row Access Policies in Snowflake for new users to control their data access.
 
 ## Project Structure
 
 ```
-├── backend/
-│   ├── server.js          # Express proxy server
-│   └── package.json
-├── frontend/
-│   ├── app/               # Next.js pages and components
-│   ├── lib/               # Frontend utilities and hooks
-│   └── package.json
-├── data/
-│   ├── setup.sql          # Database setup script
+ex_cortex_agent_rap_3tier/
+├── frontend/              # Next.js React application
+│   ├── app/              # Pages and components
+│   ├── lib/              # Utilities and API client
+│   └── README.md         # Frontend setup instructions
+│
+├── backend/              # Node.js (Express) backend
+│   ├── server.js         # Main Express server
+│   └── README.md         # Node.js backend setup instructions
+│
+├── backend_py/           # Python (FastAPI) backend
+│   ├── server.py         # Main FastAPI server
+│   └── README.md         # Python backend setup instructions
+│
+├── data/                 # Snowflake setup files
+│   ├── setup.sql         # Database setup script
 │   └── customer_semantic_model.yaml
-└── MULTISALES.yaml        # Cortex Analyst semantic model file
-└── MULTISALES.ipynb       # Setup notebook
+│
+├── CORTEXAGENTS_RAP.ipynb  # Snowflake notebook for setup
+└── README.md             # This file
 ```
 
-## Development
+## Key Features
 
-To modify the application:
+### Frontend
+✅ Real-time streaming responses using Server-Sent Events (SSE)
+✅ Multi-format rendering: text, tables, charts, citations
+✅ Modern React with TypeScript
+✅ Responsive design with Tailwind CSS
 
-- **Backend logic**: Edit `backend/server.js`
-- **Frontend UI**: Edit files in `frontend/app/components/`
-- **Agent hook**: Edit `frontend/lib/agent-api/useAgentAPIQuery.ts`
+### Backend (Both Implementations)
+✅ Automatic SQL detection and execution
+✅ SQL redaction before sending to frontend
+✅ Row-level security via `SET TENANT` session variable
+✅ Streaming SSE proxy from Snowflake
+✅ Data-to-analytics chaining for visualizations
+✅ Demo authentication with cookies
+
+### Snowflake
+✅ Cortex Agent with semantic models
+✅ Row Access Policies for multi-tenant data
+✅ Cortex Search for document retrieval
+✅ Text-to-SQL, data-to-chart, and SQL execution tools
+
+## Architecture Benefits
+
+### Separation of Concerns
+- **Frontend**: Pure UI/UX, no business logic
+- **Backend**: Security, authentication, API orchestration
+- **Snowflake**: Data, AI, and access control
+
+### Security
+- SQL never reaches the frontend
+- Row-level security enforced in Snowflake
+- Backend validates and controls all Snowflake access
+
+### Flexibility
+- Swap backends without changing frontend
+- Easy to add new features to either tier
+- Can deploy frontend and backend independently
+
+### Scalability
+- Frontend can be served from CDN
+- Backend can scale horizontally
+- Snowflake handles compute scaling automatically
+
+## Backend Comparison
+
+Both backends provide identical functionality. Choose based on your preference:
+
+| Feature | Node.js | Python |
+|---------|---------|--------|
+| Framework | Express | FastAPI |
+| Lines of Code | ~342 | ~565 |
+| Type Safety | Optional (TypeScript) | Built-in (Pydantic) |
+| API Docs | Manual | Auto-generated |
+| Startup Time | ~1s | ~2s |
+| Best For | JS teams, minimal deps | Python teams, type safety |
+
+See [`BACKEND_COMPARISON.md`](BACKEND_COMPARISON.md) for detailed comparison.
+
+## Development Workflow
+
+1. **Make changes** to frontend or backend
+2. **Hot reload** automatically refreshes (both frontend and backend support this)
+3. **Test** with different demo users to verify row-level access
+4. **Check logs** in backend terminal for debugging
+
+## Production Deployment
+
+### Frontend
+```bash
+cd frontend
+pnpm build
+pnpm start
+# Or deploy to Vercel, Netlify, etc.
+```
+
+### Backend (Node.js)
+```bash
+cd backend
+NODE_ENV=production node server.js
+# Or use PM2, Docker, etc.
+```
+
+### Backend (Python)
+```bash
+cd backend_py
+gunicorn server:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
+# Or use Docker, Kubernetes, etc.
+```
+
+**Important for Production**:
+- Use HTTPS for all connections
+- Configure CORS with specific production URLs
+- Use proper secret management (not `.env` files)
+- Enable rate limiting and request validation
+- Set up monitoring and logging aggregation
 
 ## Troubleshooting
 
-**Backend can't connect to Snowflake**
-- Verify `SNOWFLAKE_URL` and `SNOWFLAKE_PAT` are correct
-- Check that your PAT has the necessary privileges
+### Backend won't start
+- Check `.env` file exists with correct Snowflake credentials
+- Verify port 4000 is not in use
+- Ensure all dependencies are installed
 
-**SQL not executing**
-- Check backend logs for SQL detection messages
-- Verify `SNOWFLAKE_WAREHOUSE` is set and running
-
-**Row-level security not working**
-- Ensure Row Access Policies are created (run the notebook)
-- Verify `SET TENANT` is being prepended to SQL (check backend logs)
-
-**Frontend can't reach backend**
+### Frontend can't reach backend
 - Verify backend is running on port 4000
 - Check `NEXT_PUBLIC_BACKEND_URL` in frontend `.env.local`
+- Look for CORS errors in browser console
+
+### Snowflake connection errors
+- Verify `SNOWFLAKE_URL` and `SNOWFLAKE_PAT` are correct
+- Check that PAT has necessary privileges
+- Ensure warehouse is running
+
+### Row-level security not working
+- Verify Row Access Policies are created (run notebook)
+- Check backend logs for `SET TENANT` statements
+- Ensure username cookie is being set/sent
+
+## Learning Resources
+
+- [Snowflake Cortex Agents Documentation](https://docs.snowflake.com/en/user-guide/snowflake-cortex/cortex-agents)
+- [Row Access Policies Guide](https://docs.snowflake.com/en/user-guide/security-row-intro)
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Express.js Guide](https://expressjs.com/) (for Node.js backend)
+- [FastAPI Documentation](https://fastapi.tiangolo.com/) (for Python backend)
 
 ## License
 
 See LICENSE file for details.
+
+## Support
+
+For questions or issues:
+1. Check the individual component READMEs (frontend, backend, backend_py)
+2. Review the troubleshooting sections
+3. Check Snowflake Cortex Agent documentation
+4. Verify your setup matches the notebook output
+
+---
+
+Built with ❤️ to demonstrate production-ready patterns for Snowflake Cortex Agents with multi-tenant security.

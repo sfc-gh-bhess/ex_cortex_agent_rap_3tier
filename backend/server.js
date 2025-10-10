@@ -21,7 +21,8 @@ app.use(cookieParser());
 // Configuration
 // =============================================================================
 
-const DEMO_USERS = ["Alice", "Bob", "Charlie"];
+// Load demo users from JSON file
+const DEMO_USERS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'users.json'), 'utf-8'));
 
 const AGENT_TOOLS = [
   { tool_spec: { type: 'cortex_search', name: 'search1' } },
@@ -159,8 +160,8 @@ async function streamData2Analytics(snowflakeUrl, authToken, messages, assistant
 
 app.post('/auth/login', (req, res) => {
   const { username, password } = req.body || {};
-  const isValid = username && password && DEMO_USERS.includes(username) && password === username;
-  if (!isValid) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+  const user = DEMO_USERS.find(u => u.username === username && u.password === password);
+  if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
   res.cookie('demo_username', encodeURIComponent(username), { httpOnly: false, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
   res.json({ ok: true });
 });
@@ -263,7 +264,7 @@ app.post('/api/agent/run', async (req, res) => {
           writeSSE('message.delta', {
             id: "msg_000",
             object: "message.delta",
-            delta: { content: [{ type: 'text', text: toolResultJson.text }] }
+            delta: { content: [{ type: 'text', text: toolResultJson.text + '\n\n---\n\n' }] }
           });
         }
 
