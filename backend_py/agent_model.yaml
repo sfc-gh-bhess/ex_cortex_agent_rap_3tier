@@ -16,7 +16,7 @@ tools:
       name: sql_exec
 tool_resources:
   analyst1:
-    semantic_model_file: "@MULTISALES.DATA.MODELS/MULTISALES.yaml"
+    semantic_view: "MULTISALES.DATA.MULTISALES_SV"
   search1:
     name: "MULTISALES.DATA.ITEMS_SEARCH"
     max_results: 10

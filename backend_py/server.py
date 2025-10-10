@@ -179,7 +179,7 @@ async def execute_sql(snowflake_url: str, auth_token: str, sql: str, username: O
         "parameters": get_statement_parameters(statement_count)
     }
     
-    logger.info(f"[SQL] {stmt_payload}")
+    logger.info(f"[SQL] {sql}")
     logger.info("[SNOWFLAKE REQUEST] /api/v2/statements")
     
     async with httpx.AsyncClient(timeout=60.0) as client:
