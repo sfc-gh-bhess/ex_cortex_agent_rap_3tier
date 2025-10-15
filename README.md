@@ -102,7 +102,7 @@ The application includes three default demo users:
 
 **Login**: The password for each user is the same as their username (e.g., username: `Alice`, password: `Alice`).
 
-**Try asking**: "What are the biggest deals won and lost?"
+**Try asking**: "What was the best selling chicken sandwich in May 2024?"
 
 Each user will see different results based on their row-level access permissions configured in Snowflake's Row Access Policies.
 
