@@ -51,6 +51,8 @@ BACKEND_PORT=4000
 SNOWFLAKE_URL=https://<ACCOUNT_LOCATOR>.snowflakecomputing.com
 SNOWFLAKE_PAT=<YOUR_PERSONAL_ACCESS_TOKEN>
 SNOWFLAKE_WAREHOUSE=<WAREHOUSE_NAME>
+SNOWFLAKE_DATABASE=<DATABASE_NAME>
+SNOWFLAKE_SCHEMA=<SCHEMA_NAME>
 ```
 
 Copy the example file:
@@ -146,30 +148,24 @@ The backend will be available at `http://localhost:4000`.
 
 ## Managing Users
 
-Demo users are stored in `users.json` in the backend_py directory. The default users are:
+User credentials are stored in Snowflake in the `USERS` table within the database and schema specified by your `SNOWFLAKE_DATABASE` and `SNOWFLAKE_SCHEMA` environment variables (defaults to `MULTISALES.DATA`).
 
-```json
-[
-  {"username": "Alice", "password": "Alice"},
-  {"username": "Bob", "password": "Bob"},
-  {"username": "Charlie", "password": "Charlie"}
-]
-```
+The table has two columns:
+- `USERID` - The username
+- `PASSWORD` - The user's password
 
 **To add or remove users**:
-1. Edit `backend_py/users.json`
-2. Add or remove user entries with `username` and `password` fields
-3. Restart the backend server
+1. Connect to Snowflake
+2. Insert, update, or delete rows in the `<DATABASE>.<SCHEMA>.USERS` table
+3. No backend restart required
 
-Example - adding a new user:
-```json
-[
-  {"username": "Alice", "password": "Alice"},
-  {"username": "Bob", "password": "Bob"},
-  {"username": "Charlie", "password": "Charlie"},
-  {"username": "Diana", "password": "SecurePass123"}
-]
+Example - adding a new user (assuming `SNOWFLAKE_DATABASE=MULTISALES` and `SNOWFLAKE_SCHEMA=DATA`):
+```sql
+INSERT INTO MULTISALES.DATA.USERS (USERID, PASSWORD)
+VALUES ('Diana', 'SecurePass123');
 ```
+
+**Note**: The `MULTISALES.ipynb` notebook creates this table and populates it with default users.
 
 ## Key Python Libraries
 

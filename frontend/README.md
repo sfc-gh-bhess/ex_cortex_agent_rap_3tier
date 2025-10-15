@@ -87,13 +87,35 @@ frontend/
 
 ## Demo Users
 
-The default demo users are defined in the backend's `users.json` file:
+The default demo users are defined in Snowflake's `MULTISALES.DATA.USERS` table:
 
 - **Alice**, **Bob**, **Charlie**
 
 Password for each user is the same as their username (e.g., username: `Alice`, password: `Alice`).
 
-**To add or modify users**: Edit the `users.json` file in your chosen backend directory (`backend/users.json` or `backend_py/users.json`) and restart the backend server.
+**To add or modify users**: Insert, update, or delete rows in the `MULTISALES.DATA.USERS` table in Snowflake. Changes take effect immediately without restarting the backend.
+
+## Customizing Suggested Actions
+
+The chat interface displays suggested action buttons when no messages are present. These are configured in `suggested-actions.json` in the frontend directory.
+
+**To customize the suggested queries**:
+
+1. Edit `frontend/suggested-actions.json`
+2. Modify the JSON array of query strings
+3. Save the file - changes apply on next page load
+
+Example format:
+```json
+[
+  "Your first suggested query here",
+  "Your second suggested query here",
+  "Your third suggested query here",
+  "Your fourth suggested query here"
+]
+```
+
+**Alternative**: You can also override suggestions via environment variable by setting `NEXT_PUBLIC_SUGGESTED_QUERIES` to a JSON array string in `.env.local`.
 
 ## Development
 

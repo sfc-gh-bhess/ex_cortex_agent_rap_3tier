@@ -22,9 +22,6 @@ app.use(cookieParser());
 // Configuration
 // =============================================================================
 
-// Load demo users from JSON file
-const DEMO_USERS = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'users.json'), 'utf-8'));
-
 // Load agent model configuration from YAML file
 const AGENT_MODEL_CONFIG = yaml.load(fs.readFileSync(path.join(process.cwd(), 'agent_model.yaml'), 'utf-8'));
 
@@ -74,7 +71,7 @@ async function executeSQL(snowflakeUrl, authToken, sql, username) {
   const tenantSql = username ? `SET TENANT = '${username}'; ${sql}` : sql;
   const stmtPayload = {
     statement: tenantSql,
-    warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'SALES_INTELLIGENCE_WH',
+    warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'MULTISALES_WH',
     parameters: STATEMENT_PARAMETERS
   };
 
@@ -150,12 +147,46 @@ async function streamData2Analytics(snowflakeUrl, authToken, messages, assistant
 // Authentication Routes
 // =============================================================================
 
-app.post('/auth/login', (req, res) => {
+app.post('/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
-  const user = DEMO_USERS.find(u => u.username === username && u.password === password);
-  if (!user) return res.status(401).json({ ok: false, error: 'Invalid credentials' });
-  res.cookie('demo_username', encodeURIComponent(username), { httpOnly: false, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
-  res.json({ ok: true });
+  
+  if (!username || !password) {
+    return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+  }
+  
+  try {
+    const snowflakeUrl = process.env.SNOWFLAKE_URL;
+    const authToken = process.env.SNOWFLAKE_PAT || '';
+    const database = process.env.SNOWFLAKE_DATABASE || 'MULTISALES';
+    const schema = process.env.SNOWFLAKE_SCHEMA || 'DATA';
+    
+    // Query Snowflake to validate user credentials
+    const query = `SELECT userid FROM ${database}.${schema}.users WHERE userid = '${username}' AND password = '${password}'`;
+    const response = await fetch(`${snowflakeUrl}/api/v2/statements`, {
+      method: 'POST',
+      headers: getSnowflakeAuthHeaders(authToken),
+      body: JSON.stringify({
+        statement: query,
+        warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'MULTISALES_WH',
+        parameters: STATEMENT_PARAMETERS
+      }),
+    });
+    
+    const result = await response.json();
+    
+    // Check if user was found
+    if (result.data && result.data.length === 1) {
+      // Valid user found
+      res.cookie('demo_username', encodeURIComponent(username), { httpOnly: false, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000, path: '/' });
+      return res.json({ ok: true });
+    } else {
+      // No user found or multiple users (shouldn't happen)
+      return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    }
+  } catch (e) {
+    console.error('[LOGIN ERROR]', e);
+    return res.status(500).json({ ok: false, error: 'Login failed' });
+  }
 });
 
 app.post('/auth/logout', (_req, res) => {
@@ -311,7 +342,7 @@ app.post('/api/statements', async (req, res) => {
       headers: getSnowflakeAuthHeaders(authToken),
       body: JSON.stringify({
         statement,
-        warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'SALES_INTELLIGENCE_WH',
+        warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'MULTISALES_WH',
         parameters: STATEMENT_PARAMETERS
       }),
     });

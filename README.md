@@ -108,26 +108,24 @@ Each user will see different results based on their row-level access permissions
 
 ### Managing Users
 
-Users are defined in the `users.json` file in your chosen backend directory:
-- Node.js backend: `backend/users.json`
-- Python backend: `backend_py/users.json`
+User credentials are stored in Snowflake in the `USERS` table within the database and schema specified by your backend's `SNOWFLAKE_DATABASE` and `SNOWFLAKE_SCHEMA` environment variables (defaults to `MULTISALES.DATA`).
+
+The table has two columns:
+- `USERID` - The username
+- `PASSWORD` - The user's password
 
 **To add or remove users**:
-1. Edit the `users.json` file in your backend directory
-2. Add or remove user entries with `username` and `password` fields
-3. Restart the backend server
+1. Connect to Snowflake
+2. Insert, update, or delete rows in the `<DATABASE>.<SCHEMA>.USERS` table
+3. No backend restart required - changes take effect immediately
 
-Example `users.json`:
-```json
-[
-  {"username": "Alice", "password": "Alice"},
-  {"username": "Bob", "password": "Bob"},
-  {"username": "Charlie", "password": "Charlie"},
-  {"username": "Diana", "password": "SecurePass123"}
-]
+Example - adding a new user (assuming `SNOWFLAKE_DATABASE=MULTISALES` and `SNOWFLAKE_SCHEMA=DATA`):
+```sql
+INSERT INTO MULTISALES.DATA.USERS (USERID, PASSWORD)
+VALUES ('Diana', 'SecurePass123');
 ```
 
-**Note**: You'll also need to configure corresponding Row Access Policies in Snowflake for new users to control their data access.
+**Note**: The `MULTISALES.ipynb` notebook creates this table and populates it with default users. You'll also need to configure corresponding Row Access Policies in Snowflake for new users to control their data access.
 
 ## Project Structure
 
@@ -292,6 +290,21 @@ For questions or issues:
 2. Review the troubleshooting sections
 3. Check Snowflake Cortex Agent documentation
 4. Verify your setup matches the notebook output
+
+## Reuse
+
+This project can be reused for other Snowflake Cortex Agent examples/demos.
+The main things you will need to customize are the Cortex Agent YAML specification
+and the suggested quesitons/actions to show the user upon login.
+
+Replace the `agent_model.yaml` in either the `backend` or `backend_py` directories,
+depending on which backend you would like to use. Replace the `suggested-actions.json`
+in the `frontend` directory with the suggested questions/actions for the user.
+
+The rest of the project assumes the following:
+* Users are stored in the `<SNOWFLAKE_DATABASE>`.`<SNOWFLAKE_SCHEMA>`.`USERS` table
+* The user and role for the PAT has access to the necessary Snowflake objects
+  (e.g., the tables in the Agent spec, etc).
 
 ---
 

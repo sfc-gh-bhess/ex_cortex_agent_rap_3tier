@@ -3,18 +3,14 @@
 import { motion } from 'framer-motion';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
+import defaultSuggestedActions from '@/suggested-actions.json';
 
 interface SuggestedActionsProps {
     handleSubmit: (input: string) => void;
 }
 
 export const SuggestedActions = ({ handleSubmit }: SuggestedActionsProps) => {
-    let suggestedActions = [
-        'How many claims are currently open? How many are $10K or higher?',
-        'Create a chart from repair invoices by zipcodes for Austin.  Are there certain areas with higher repair charges?',
-        'List appraisal clauses related to snowmobiles across all our contracts?',
-        'Rental car'
-    ];
+    let suggestedActions = defaultSuggestedActions;
 
     if (process.env.NEXT_PUBLIC_SUGGESTED_QUERIES) {
         try {

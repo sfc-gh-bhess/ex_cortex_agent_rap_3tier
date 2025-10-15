@@ -70,15 +70,13 @@ app.add_middleware(
 BACKEND_PORT = int(os.getenv("BACKEND_PORT", "4000"))
 SNOWFLAKE_URL = os.getenv("SNOWFLAKE_URL", "")
 SNOWFLAKE_PAT = os.getenv("SNOWFLAKE_PAT", "")
-SNOWFLAKE_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE", "SALES_INTELLIGENCE_WH")
+SNOWFLAKE_WAREHOUSE = os.getenv("SNOWFLAKE_WAREHOUSE", "MULTISALES_WH")
+SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "MULTISALES")
+SNOWFLAKE_SCHEMA = os.getenv("SNOWFLAKE_SCHEMA", "DATA")
 SEMANTIC_MODEL_PATH = os.getenv("SEMANTIC_MODEL_PATH", "")
 SEARCH_SERVICE_PATH = os.getenv("SEARCH_SERVICE_PATH", "")
 SNOWFLAKE_ACCOUNT = os.getenv("SNOWFLAKE_ACCOUNT", "")
 SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER", "")
-
-# Load demo users from JSON file
-with open(os.path.join(os.path.dirname(__file__), "users.json"), "r") as f:
-    DEMO_USERS = json.load(f)
 
 # Load agent model configuration from YAML file
 with open(os.path.join(os.path.dirname(__file__), "agent_model.yaml"), "r") as f:
@@ -262,26 +260,52 @@ async def parse_sse_stream(response: httpx.Response):
 
 @app.post("/auth/login")
 async def login(login_req: LoginRequest, response: Response):
-    """Demo user login."""
+    """User login - validates against Snowflake users table."""
     username = login_req.username
     password = login_req.password
     
-    # Check if user exists in users.json
-    user = next((u for u in DEMO_USERS if u["username"] == username and u["password"] == password), None)
-    
-    if not user:
+    if not username or not password:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    # Set cookie
-    response.set_cookie(
-        key="demo_username",
-        value=username,
-        httponly=False,
-        samesite="lax",
-        max_age=7 * 24 * 60 * 60  # 7 days
-    )
-    
-    return {"ok": True}
+    try:
+        # Query Snowflake to validate user credentials
+        query = f"SELECT userid FROM {SNOWFLAKE_DATABASE}.{SNOWFLAKE_SCHEMA}.users WHERE userid = '{username}' AND password = '{password}'"
+        
+        payload = {
+            "statement": query,
+            "warehouse": SNOWFLAKE_WAREHOUSE,
+            "parameters": get_statement_parameters()
+        }
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            sf_response = await client.post(
+                f"{SNOWFLAKE_URL}/api/v2/statements",
+                headers=get_snowflake_auth_headers(SNOWFLAKE_PAT),
+                json=payload
+            )
+            
+            result = sf_response.json()
+            
+            # Check if user was found
+            if result.get("data") and len(result["data"]) == 1:
+                # Valid user found
+                response.set_cookie(
+                    key="demo_username",
+                    value=username,
+                    httponly=False,
+                    samesite="lax",
+                    max_age=7 * 24 * 60 * 60  # 7 days
+                )
+                return {"ok": True}
+            else:
+                # No user found or multiple users (shouldn't happen)
+                raise HTTPException(status_code=401, detail="Invalid credentials")
+                
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[LOGIN ERROR] {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
 
 @app.post("/auth/logout")
 async def logout(response: Response):
