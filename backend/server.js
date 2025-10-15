@@ -168,7 +168,6 @@ app.post('/auth/login', async (req, res) => {
       body: JSON.stringify({
         statement: query,
         warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'MULTISALES_WH',
-        parameters: STATEMENT_PARAMETERS
       }),
     });
     
