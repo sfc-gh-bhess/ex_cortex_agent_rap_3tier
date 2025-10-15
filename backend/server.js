@@ -26,7 +26,6 @@ app.use(cookieParser());
 const AGENT_MODEL_CONFIG = yaml.load(fs.readFileSync(path.join(process.cwd(), 'agent_model.yaml'), 'utf-8'));
 
 const STATEMENT_PARAMETERS = {
-  MULTI_STATEMENT_COUNT: '2',
   BINARY_OUTPUT_FORMAT: 'HEX',
   DATE_OUTPUT_FORMAT: 'YYYY-Mon-DD',
   TIME_OUTPUT_FORMAT: 'HH24:MI:SS',
@@ -68,7 +67,7 @@ function extractSQLFromPayload(payload) {
 }
 
 async function executeSQL(snowflakeUrl, authToken, sql, username) {
-  const tenantSql = username ? `SET TENANT = '${username}'; ${sql}` : sql;
+  const tenantSql = username ? `SET TENANT = '${username}' ->> ${sql}` : sql;
   const stmtPayload = {
     statement: tenantSql,
     warehouse: process.env.SNOWFLAKE_WAREHOUSE || 'MULTISALES_WH',
@@ -292,9 +291,8 @@ app.post('/api/agent/run', async (req, res) => {
 
         // Execute SQL and get results
         const stmtJson = await executeSQL(snowflakeUrl, authToken, sql, username);
-        const statementHandle = stmtJson.statementHandles?.[1] || stmtJson.statementHandle;
-        const sqlResultsJson = await getSQLResults(snowflakeUrl, authToken, statementHandle);
-        writeSSE('table_result', sqlResultsJson);
+        const statementHandle = stmtJson.statementHandles?.at(-1) || stmtJson.statementHandle;
+        writeSSE('table_result', stmtJson);
 
         // Signal new assistant message and stream data-to-analytics
         writeSSE('new_assistant_message', { message: 'Starting data-to-analytics' });

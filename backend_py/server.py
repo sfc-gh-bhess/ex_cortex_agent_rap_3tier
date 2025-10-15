@@ -166,8 +166,7 @@ async def execute_sql(snowflake_url: str, auth_token: str, sql: str, username: O
     tenant_sql = sql
     statement_count = 1 
     if username:
-        tenant_sql = f"SET TENANT = '{username}'; {sql}"
-        statement_count = 2
+        tenant_sql = f"SET TENANT = '{username}' ->> {sql}"
     
     stmt_payload = {
         "statement": tenant_sql,
@@ -175,7 +174,7 @@ async def execute_sql(snowflake_url: str, auth_token: str, sql: str, username: O
         "parameters": get_statement_parameters(statement_count)
     }
     
-    logger.info(f"[SQL] {sql}")
+    logger.info(f"[SQL] {tenant_sql}")
     logger.info("[SNOWFLAKE REQUEST] /api/v2/statements")
     
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -451,9 +450,8 @@ async def agent_run(
                     
                     # Execute SQL and get results
                     stmt_json = await execute_sql(SNOWFLAKE_URL, SNOWFLAKE_PAT, sql, username)
-                    statement_handle = stmt_json.get("statementHandles", [None, None])[1] or stmt_json.get("statementHandle")
-                    sql_results_json = await get_sql_results(SNOWFLAKE_URL, SNOWFLAKE_PAT, statement_handle)
-                    yield write_sse("table_result", sql_results_json)
+                    statement_handle = stmt_json.get("statementHandles", [None, None])[-1] or stmt_json.get("statementHandle")
+                    yield write_sse("table_result", stmt_json)
                     
                     # Signal new assistant message for data-to-analytics
                     yield write_sse("new_assistant_message", {"message": "Starting data-to-analytics"})
