@@ -53,6 +53,10 @@ SNOWFLAKE_PAT=<YOUR_PERSONAL_ACCESS_TOKEN>
 SNOWFLAKE_WAREHOUSE=<WAREHOUSE_NAME>
 SNOWFLAKE_DATABASE=<DATABASE_NAME>
 SNOWFLAKE_SCHEMA=<SCHEMA_NAME>
+
+# Snowflake API Endpoints (customize if using different endpoints)
+SNOWFLAKE_AGENT_ENDPOINT=/api/v2/cortex/agent:run
+SNOWFLAKE_STATEMENTS_ENDPOINT=/api/v2/statements
 ```
 
 Copy the example file:
@@ -97,6 +101,23 @@ cp agent_model.yaml.example agent_model.yaml
 ```
 
 **Getting Configuration Values**: Run the `MULTISALES.ipynb` notebook in Snowflake to set up the required resources. The notebook will provide the configuration to copy into `agent_model.yaml`.
+
+### 3. Customization Points
+
+The backend provides clear customization points for advanced use cases:
+
+#### Custom Snowflake Endpoints
+
+If you need to use different Snowflake API endpoints (e.g., for testing or custom proxy configurations), you can override the default endpoints in your `.env` file:
+
+```bash
+SNOWFLAKE_AGENT_ENDPOINT=/api/v2/cortex/agent:run
+SNOWFLAKE_STATEMENTS_ENDPOINT=/api/v2/statements
+```
+
+#### Custom Request Body Format
+
+If you need to customize how requests are formatted for the Snowflake agent endpoint (e.g., adding custom headers, metadata, or transforming messages), modify the `create_agent_request_body()` function in `server.py`. This function is clearly marked with a "DEVELOPER CUSTOMIZATION" comment block and includes detailed documentation on how to customize it.
 
 ## Running the Backend
 
@@ -179,11 +200,14 @@ VALUES ('Diana', 'SecurePass123');
 ## Code Structure
 
 The server is organized into clear sections:
-- **Configuration**: Environment variables, constants, and CORS setup
+- **Configuration**: Environment variables, constants, configurable endpoints, and CORS setup
 - **Helper Functions**: Reusable utilities with type hints and docstrings
+- **Developer Customization**: Clearly marked section for customizing request body formatting
 - **Authentication Routes**: Login, logout, and JWT generation endpoints
 - **Agent Proxy**: Main streaming endpoint with SQL detection and execution
 - **Statements Proxy**: Direct SQL execution endpoint
+
+All customization points are clearly marked with prominent comment blocks to make it easy to locate and modify the code for your specific needs.
 
 ## Development Tips
 

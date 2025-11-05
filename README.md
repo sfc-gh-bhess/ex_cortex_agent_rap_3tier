@@ -203,13 +203,24 @@ Both backends provide identical functionality. Choose based on your preference:
 | Feature | Node.js | Python |
 |---------|---------|--------|
 | Framework | Express | FastAPI |
-| Lines of Code | ~342 | ~565 |
+| Lines of Code | ~375 | ~595 |
 | Type Safety | Optional (TypeScript) | Built-in (Pydantic) |
 | API Docs | Manual | Auto-generated |
 | Startup Time | ~1s | ~2s |
+| Customization | Easy (see README) | Easy (see README) |
 | Best For | JS teams, minimal deps | Python teams, type safety |
 
 See [`BACKEND_COMPARISON.md`](BACKEND_COMPARISON.md) for detailed comparison.
+
+## Customization
+
+Both backends are designed to be easily customizable:
+
+- **Snowflake Endpoints**: Configure via environment variables (`SNOWFLAKE_AGENT_ENDPOINT`, `SNOWFLAKE_STATEMENTS_ENDPOINT`)
+- **Request Format**: Modify the clearly marked `create_agent_request_body()` / `createAgentRequestBody()` function
+- All customization points are documented with prominent comment blocks in the code
+
+See individual backend READMEs for detailed customization instructions.
 
 ## Development Workflow
 

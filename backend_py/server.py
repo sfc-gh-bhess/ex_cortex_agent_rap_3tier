@@ -11,15 +11,13 @@ import hashlib
 import logging
 import copy
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
 
 import jwt
 import yaml
-from fastapi import FastAPI, Request, Response, HTTPException, Cookie
+from fastapi import FastAPI, Response, HTTPException, Cookie
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.backends import default_backend
 from pydantic import BaseModel
 import httpx
@@ -75,6 +73,8 @@ SNOWFLAKE_DATABASE = os.getenv("SNOWFLAKE_DATABASE", "MULTISALES")
 SNOWFLAKE_SCHEMA = os.getenv("SNOWFLAKE_SCHEMA", "DATA")
 SNOWFLAKE_ACCOUNT = os.getenv("SNOWFLAKE_ACCOUNT", "")
 SNOWFLAKE_USER = os.getenv("SNOWFLAKE_USER", "")
+SNOWFLAKE_AGENT_ENDPOINT = os.getenv("SNOWFLAKE_AGENT_ENDPOINT", "/api/v2/cortex/agent:run")
+SNOWFLAKE_STATEMENTS_ENDPOINT = os.getenv("SNOWFLAKE_STATEMENTS_ENDPOINT", "/api/v2/statements")
 
 # Load agent model configuration from YAML file
 with open(os.path.join(os.path.dirname(__file__), "agent_model.yaml"), "r") as f:
@@ -119,8 +119,39 @@ def get_snowflake_auth_headers(auth_token: str) -> Dict[str, str]:
         "Authorization": f"Bearer {auth_token}"
     }
 
+# =============================================================================
+# DEVELOPER CUSTOMIZATION - Request Body Format
+# =============================================================================
+# 
+# The function below is THE place to customize how agent requests are formatted.
+# Modify this function if you need to change the structure of requests sent to
+# the Snowflake agent endpoint.
+#
+# By default, this function merges the AGENT_MODEL_CONFIG from agent_model.yaml
+# with the conversation messages. You can modify this to:
+# - Add custom fields to the request
+# - Transform messages before sending
+# - Use a completely different request format
+# - Add authentication or tracking metadata
+#
+# =============================================================================
+
 def create_agent_request_body(messages: List[Dict]) -> Dict:
-    """Build agent API request body by cloning config and adding messages."""
+    """
+    Build agent API request body.
+    
+    CUSTOMIZE THIS FUNCTION to change how requests are formatted for your
+    Snowflake agent endpoint.
+    
+    Args:
+        messages: List of conversation messages to send to the agent
+        
+    Returns:
+        Dictionary containing the complete request body
+        
+    Default behavior:
+        Merges agent_model.yaml configuration with the provided messages
+    """
     # Clone the agent model config and add messages
     body = copy.deepcopy(AGENT_MODEL_CONFIG)
     body["messages"] = messages
@@ -175,30 +206,18 @@ async def execute_sql(snowflake_url: str, auth_token: str, sql: str, username: O
     }
     
     logger.info(f"[SQL] {tenant_sql}")
-    logger.info("[SNOWFLAKE REQUEST] /api/v2/statements")
+    logger.info(f"[SNOWFLAKE REQUEST] {SNOWFLAKE_STATEMENTS_ENDPOINT}")
     
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
-            f"{snowflake_url}/api/v2/statements",
+            f"{snowflake_url}{SNOWFLAKE_STATEMENTS_ENDPOINT}",
             headers=get_snowflake_auth_headers(auth_token),
             json=stmt_payload
         )
-        logger.info(f"[SNOWFLAKE RESPONSE] /api/v2/statements status {response.status_code}")
+        logger.info(f"[SNOWFLAKE RESPONSE] {SNOWFLAKE_STATEMENTS_ENDPOINT} status {response.status_code}")
         if response.status_code != 200:
-            logger.error(f"[SNOWFLAKE RESPONSE] /api/v2/statements error {response.text}")
-            raise Exception(f"[SNOWFLAKE RESPONSE] /api/v2/statements error {response.text}")
-        return response.json()
-
-async def get_sql_results(snowflake_url: str, auth_token: str, statement_handle: str) -> Dict:
-    """Fetch SQL execution results."""
-    logger.info(f"[SNOWFLAKE REQUEST] /api/v2/statements/{statement_handle}")
-    
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(
-            f"{snowflake_url}/api/v2/statements/{statement_handle}",
-            headers=get_snowflake_auth_headers(auth_token)
-        )
-        logger.info(f"[SNOWFLAKE RESPONSE] /api/v2/statements/{statement_handle} status {response.status_code}")
+            logger.error(f"[SNOWFLAKE RESPONSE] {SNOWFLAKE_STATEMENTS_ENDPOINT} error {response.text}")
+            raise Exception(f"[SNOWFLAKE RESPONSE] {SNOWFLAKE_STATEMENTS_ENDPOINT} error {response.text}")
         return response.json()
 
 async def stream_agent_response(
@@ -207,11 +226,11 @@ async def stream_agent_response(
     body: Dict
 ) -> httpx.Response:
     """Call Snowflake agent API and return streaming response."""
-    logger.info("[SNOWFLAKE REQUEST] /api/v2/cortex/agent:run")
+    logger.info(f"[SNOWFLAKE REQUEST] {SNOWFLAKE_AGENT_ENDPOINT}")
     
     client = httpx.AsyncClient(timeout=300.0)
     response = await client.post(
-        f"{snowflake_url}/api/v2/cortex/agent:run",
+        f"{snowflake_url}{SNOWFLAKE_AGENT_ENDPOINT}",
         headers={
             "Content-Type": "application/json",
             "Accept": "text/event-stream",
@@ -219,7 +238,7 @@ async def stream_agent_response(
         },
         json=body
     )
-    logger.info(f"[SNOWFLAKE RESPONSE] /api/v2/cortex/agent:run status {response.status_code}")
+    logger.info(f"[SNOWFLAKE RESPONSE] {SNOWFLAKE_AGENT_ENDPOINT} status {response.status_code}")
     
     return response
 
@@ -276,7 +295,7 @@ async def login(login_req: LoginRequest, response: Response):
         
         async with httpx.AsyncClient(timeout=60.0) as client:
             sf_response = await client.post(
-                f"{SNOWFLAKE_URL}/api/v2/statements",
+                f"{SNOWFLAKE_URL}{SNOWFLAKE_STATEMENTS_ENDPOINT}",
                 headers=get_snowflake_auth_headers(SNOWFLAKE_PAT),
                 json=payload
             )
@@ -373,7 +392,6 @@ async def get_jwt():
 
 @app.post("/api/agent/run")
 async def agent_run(
-    request: Request,
     agent_req: AgentRunRequest,
     demo_username: Optional[str] = Cookie(None)
 ):
@@ -476,9 +494,9 @@ async def agent_run(
                         [*messages, assistant_message, sql_exec_message]
                     )
                     
-                    logger.info("[SNOWFLAKE REQUEST] /api/v2/cortex/agent:run (data-to-analytics)")
+                    logger.info(f"[SNOWFLAKE REQUEST] {SNOWFLAKE_AGENT_ENDPOINT} (data-to-analytics)")
                     d2a_response = await stream_agent_response(SNOWFLAKE_URL, SNOWFLAKE_PAT, data2analytics_body)
-                    logger.info(f"[SNOWFLAKE RESPONSE] /api/v2/cortex/agent:run (data-to-analytics) status {d2a_response.status_code}")
+                    logger.info(f"[SNOWFLAKE RESPONSE] {SNOWFLAKE_AGENT_ENDPOINT} (data-to-analytics) status {d2a_response.status_code}")
                     
                     # Stream data-to-analytics events
                     async for d2a_event_name, d2a_data in parse_sse_stream(d2a_response):
@@ -554,7 +572,7 @@ async def statements_proxy(stmt_req: StatementRequest):
     
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.post(
-            f"{SNOWFLAKE_URL}/api/v2/statements",
+            f"{SNOWFLAKE_URL}{SNOWFLAKE_STATEMENTS_ENDPOINT}",
             headers=get_snowflake_auth_headers(SNOWFLAKE_PAT),
             json=payload
         )

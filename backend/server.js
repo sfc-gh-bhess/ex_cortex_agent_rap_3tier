@@ -36,6 +36,10 @@ const STATEMENT_PARAMETERS = {
   TIMEZONE: 'America/Los_Angeles',
 };
 
+// Configurable Snowflake API endpoints
+const SNOWFLAKE_AGENT_ENDPOINT = process.env.SNOWFLAKE_AGENT_ENDPOINT || '/api/v2/cortex/agent:run';
+const SNOWFLAKE_STATEMENTS_ENDPOINT = process.env.SNOWFLAKE_STATEMENTS_ENDPOINT || '/api/v2/statements';
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -74,26 +78,45 @@ async function executeSQL(snowflakeUrl, authToken, sql, username) {
     parameters: STATEMENT_PARAMETERS
   };
 
-  console.log('[SNOWFLAKE REQUEST] /api/v2/statements');
-  const stmtResp = await fetch(`${snowflakeUrl}/api/v2/statements`, {
+  console.log(`[SNOWFLAKE REQUEST] ${SNOWFLAKE_STATEMENTS_ENDPOINT}`);
+  const stmtResp = await fetch(`${snowflakeUrl}${SNOWFLAKE_STATEMENTS_ENDPOINT}`, {
     method: 'POST',
     headers: getSnowflakeAuthHeaders(authToken),
     body: JSON.stringify(stmtPayload),
   });
-  console.log('[SNOWFLAKE RESPONSE] /api/v2/statements status', stmtResp.status);
+  console.log(`[SNOWFLAKE RESPONSE] ${SNOWFLAKE_STATEMENTS_ENDPOINT} status`, stmtResp.status);
   return await stmtResp.json();
 }
 
-async function getSQLResults(snowflakeUrl, authToken, statementHandle) {
-  console.log(`[SNOWFLAKE REQUEST] /api/v2/statements/${statementHandle}`);
-  const sqlResultsResp = await fetch(`${snowflakeUrl}/api/v2/statements/${statementHandle}`, {
-    method: 'GET',
-    headers: getSnowflakeAuthHeaders(authToken),
-  });
-  console.log(`[SNOWFLAKE RESPONSE] /api/v2/statements/${statementHandle} status`, sqlResultsResp.status);
-  return await sqlResultsResp.json();
-}
+// =============================================================================
+// DEVELOPER CUSTOMIZATION - Request Body Format
+// =============================================================================
+// 
+// The function below is THE place to customize how agent requests are formatted.
+// Modify this function if you need to change the structure of requests sent to
+// the Snowflake agent endpoint.
+//
+// By default, this function merges the AGENT_MODEL_CONFIG from agent_model.yaml
+// with the conversation messages. You can modify this to:
+// - Add custom fields to the request
+// - Transform messages before sending
+// - Use a completely different request format
+// - Add authentication or tracking metadata
+//
+// =============================================================================
 
+/**
+ * Build agent API request body.
+ * 
+ * CUSTOMIZE THIS FUNCTION to change how requests are formatted for your
+ * Snowflake agent endpoint.
+ * 
+ * @param {Array} messages - List of conversation messages to send to the agent
+ * @returns {Object} Complete request body object
+ * 
+ * Default behavior:
+ *   Merges agent_model.yaml configuration with the provided messages
+ */
 function createAgentRequestBody(messages) {
   // Clone the agent model config and add messages
   return {
@@ -117,13 +140,13 @@ async function streamData2Analytics(snowflakeUrl, authToken, messages, assistant
 
   const data2AnalyticsBody = createAgentRequestBody([...messages, assistantMessage, sqlExecMessage]);
 
-  console.log('[SNOWFLAKE REQUEST] /api/v2/cortex/agent:run (data-to-analytics)');
-  const data2AnalyticsResp = await fetch(`${snowflakeUrl}/api/v2/cortex/agent:run`, {
+  console.log(`[SNOWFLAKE REQUEST] ${SNOWFLAKE_AGENT_ENDPOINT} (data-to-analytics)`);
+  const data2AnalyticsResp = await fetch(`${snowflakeUrl}${SNOWFLAKE_AGENT_ENDPOINT}`, {
     method: 'POST',
     headers: { ...getSnowflakeAuthHeaders(authToken), 'Accept': 'text/event-stream' },
     body: JSON.stringify(data2AnalyticsBody),
   });
-  console.log('[SNOWFLAKE RESPONSE] /api/v2/cortex/agent:run (data-to-analytics) status', data2AnalyticsResp.status);
+  console.log(`[SNOWFLAKE RESPONSE] ${SNOWFLAKE_AGENT_ENDPOINT} (data-to-analytics) status`, data2AnalyticsResp.status);
 
   // Stream data-to-analytics events to frontend
   const data2AnalyticsEvents = events(data2AnalyticsResp);
@@ -161,7 +184,7 @@ app.post('/auth/login', async (req, res) => {
     
     // Query Snowflake to validate user credentials
     const query = `SELECT userid FROM ${database}.${schema}.users WHERE userid = '${username}' AND password = '${password}'`;
-    const response = await fetch(`${snowflakeUrl}/api/v2/statements`, {
+    const response = await fetch(`${snowflakeUrl}${SNOWFLAKE_STATEMENTS_ENDPOINT}`, {
       method: 'POST',
       headers: getSnowflakeAuthHeaders(authToken),
       body: JSON.stringify({
@@ -232,13 +255,13 @@ app.post('/api/agent/run', async (req, res) => {
     const username = decodeURIComponent(req.cookies?.demo_username || '');
 
     // Call Snowflake Agent API
-    console.log('[SNOWFLAKE REQUEST] /api/v2/cortex/agent:run');
-    const response = await fetch(`${snowflakeUrl}/api/v2/cortex/agent:run`, {
+    console.log(`[SNOWFLAKE REQUEST] ${SNOWFLAKE_AGENT_ENDPOINT}`);
+    const response = await fetch(`${snowflakeUrl}${SNOWFLAKE_AGENT_ENDPOINT}`, {
       method: 'POST',
       headers: { ...getSnowflakeAuthHeaders(authToken), 'Accept': 'text/event-stream' },
       body: JSON.stringify(createAgentRequestBody(messages)),
     });
-    console.log('[SNOWFLAKE RESPONSE] /api/v2/cortex/agent:run status', response.status);
+    console.log(`[SNOWFLAKE RESPONSE] ${SNOWFLAKE_AGENT_ENDPOINT} status`, response.status);
 
     // Setup SSE response
     res.status(response.status);
@@ -334,7 +357,7 @@ app.post('/api/statements', async (req, res) => {
     if (typeof statement !== 'string' || !statement.trim()) return res.status(400).json({ error: 'statement required' });
 
     const authToken = process.env.SNOWFLAKE_PAT || '';
-    const response = await fetch(`${snowflakeUrl}/api/v2/statements`, {
+    const response = await fetch(`${snowflakeUrl}${SNOWFLAKE_STATEMENTS_ENDPOINT}`, {
       method: 'POST',
       headers: getSnowflakeAuthHeaders(authToken),
       body: JSON.stringify({
